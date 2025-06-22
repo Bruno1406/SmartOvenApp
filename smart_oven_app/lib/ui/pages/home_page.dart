@@ -36,7 +36,6 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
             child: const Text("Selecionar Curva de Temperatura"),
           ),
           const SizedBox(height: 20),
-          const Text("Chart Placeholder"),
         ],
       ),
     );
