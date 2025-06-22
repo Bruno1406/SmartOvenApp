@@ -31,18 +31,14 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Smart Oven App'),
-      ),
+      appBar: AppBar(title: const Text('Smart Oven App')),
       body: _pages[_selectedIndex],
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: <Widget>[
             const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.blue,
-              ),
+              decoration: BoxDecoration(color: Colors.blue),
               child: Text('Smart Oven Menu'),
             ),
             ListTile(

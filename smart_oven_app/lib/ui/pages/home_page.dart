@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class SmartOvenHome extends StatefulWidget {
@@ -17,21 +16,29 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
   Widget build(BuildContext context) {
     return Center(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          const Row (
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              ElevatedButton(
-                onPressed: null,
-                child: Text('Start'),
-              ),
+              ElevatedButton(onPressed: null, child: Text('Start')),
+              SizedBox(width: 10),
               Text("Temperature: 0°C"),
+              SizedBox(width: 10),
               Text("Time: 0 min"),
-            ]
+            ],
           ),
-          Text("Chart Placeholder")
-        ]
-      )
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/temperature-curve-options');
+            },
+            child: const Text("Selecionar Curva de Temperatura"),
+          ),
+          const SizedBox(height: 20),
+          const Text("Chart Placeholder"),
+        ],
+      ),
     );
   }
 }
