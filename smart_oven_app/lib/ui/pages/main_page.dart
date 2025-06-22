@@ -139,9 +139,7 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
           padding: EdgeInsets.zero,
           children: <Widget>[
             const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.blue,
-              ),
+              decoration: BoxDecoration(color: Colors.blue),
               child: Text('Smart Oven Menu'),
             ),
             ListTile(

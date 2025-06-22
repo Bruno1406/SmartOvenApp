@@ -48,30 +48,15 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
                 const Text("Time: 0 min"), // This text remains static
               ],
             ),
-            const SizedBox(height: 20), // Adds some space between elements
-
-            // 2. TextField replaces the "Chart Placeholder"
-            TextField(
-              controller: _textController,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Oven Command',
-                hintText: 'Type here and press Enter to send',
-              ),
-              // 3. onSubmitted invokes the write function
-              onSubmitted: (String value) {
-                if (value.isNotEmpty) {
-                  // Convert the String to a List<int> (using UTF-8 encoding)
-                  List<int> dataToSend = utf8.encode(value);
-                  
-                  // Call the write function from your service
-                  bluetoothState.writeToOvenProgramCharacteristic(dataToSend);
-                  
-                  // Clear the text field for the next command
-                  _textController.clear();
-                }
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/temperature-curve-options');
               },
+              child: const Text("Selecionar Curva de Temperatura"),
             ),
+            const SizedBox(height: 20),
+            const Text("Chart Placeholder"),
           ],
         ),
       ),
