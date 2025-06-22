@@ -28,6 +28,7 @@ class SmartOvenApp extends StatelessWidget {
             const TemperatureCurveOptionsPage(),
         '/existing-curves': (context) => ExistingCurvesPage(),
         '/create-new-curve': (context) => const CreateNewCurvePage(),
+        '/curve-options': (context) => const TemperatureCurveOptionsPage(),
       },
     );
   }

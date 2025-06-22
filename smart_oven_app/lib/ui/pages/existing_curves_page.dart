@@ -23,7 +23,7 @@ class ExistingCurvesPage extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Selecionado: ${curves[index]}')),
               );
-              Navigator.pop(context); // Volta para home com seleção feita
+              Navigator.pop(context);
             },
           );
         },
