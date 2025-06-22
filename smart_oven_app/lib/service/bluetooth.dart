@@ -2,7 +2,9 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 
-
+const String serviceUuid = "ffe0";
+const String dataCharUuid = "ffe1";
+const String programCharUuid = "ffe2";
 
 // A simple data class to hold only the information the UI needs.
 class DiscoveredDevice {
@@ -17,6 +19,8 @@ class OvenBleService extends ChangeNotifier {
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<List<ScanResult>>? _scanResultsSubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
+  StreamSubscription<List<int>>? _ovenDataCharacteristicSubscription;
+  BluetoothCharacteristic? _ovenProgramCharacteristic;
   
 
   final Map<DeviceIdentifier, ScanResult> _scanResults = {};
@@ -24,6 +28,7 @@ class OvenBleService extends ChangeNotifier {
   bool isBluetoothOn = false;
   bool isConnected = false;
   bool isScanning = false;
+  String test = 'A0';
 
   OvenBleService() {
     _initializeBluetooth();
@@ -36,6 +41,7 @@ class OvenBleService extends ChangeNotifier {
     _adapterStateSubscription?.cancel();
     _scanResultsSubscription?.cancel();
     _connectionStateSubscription?.cancel();
+    _ovenDataCharacteristicSubscription?.cancel();
     print("BluetoothService disposed, all subscriptions cancelled.");
     super.dispose();
   }
@@ -117,25 +123,65 @@ class OvenBleService extends ChangeNotifier {
     device.cancelWhenDisconnected(_connectionStateSubscription!, delayed: true, next: true);
 
 
-  // Connect to the device
+    // Connect to the device
     try {
-        print("Connecting to ${device.remoteId}...");
-        await device.connect();
-        print("Connection successful!");
+      print("Connecting to ${device.remoteId}...");
+      await device.connect();
+      print("Connection successful!");
 
-        List<BluetoothService> services = await device.discoverServices();
-        print("Services discovered: ${services.length}");
-        
-        services.forEach((service) {
-            // Here you would look for your specific oven service by its UUID
-            print('Service found: ${service.uuid}');
-            if(service.uuid.toString() == "YOUR_OVEN_SERVICE_UUID") {
-            }      
-            // TODO: Find your oven service and its characteristics
-        });
+      List<BluetoothService> services = await device.discoverServices();
+      for (BluetoothService service in services) {
+        final serviceId = service.uuid.toString().toLowerCase();
+        print("Service found: $serviceId");
 
+        if (serviceId == serviceUuid) {
+          for (BluetoothCharacteristic characteristic in service.characteristics) {
+            final charId = characteristic.uuid.toString().toLowerCase();
+            print("Characteristic found: $charId");
+
+            if (charId == dataCharUuid) {
+              // Cancel previous subscription if any
+              _ovenDataCharacteristicSubscription?.cancel();
+
+              // Listen to incoming data
+              await characteristic.setNotifyValue(true);
+              _ovenDataCharacteristicSubscription = characteristic.onValueReceived.listen((data) {
+                print("Data received: $data");
+                test = String.fromCharCodes(data);
+                notifyListeners();
+              });
+
+              // Auto-cancel subscription when disconnected
+              device.cancelWhenDisconnected(_ovenDataCharacteristicSubscription!);
+
+              // Enable notifications or indications
+              await characteristic.setNotifyValue(true);
+              print("Notification enabled for data characteristic.");
+            } 
+            else if (charId == programCharUuid) {
+              _ovenProgramCharacteristic = characteristic;
+              print("Program characteristic assigned: $charId");
+            }
+          }
+        }
+      }
     } catch (e) {
-      print("ERROR connecting to device: $e");
+      print("❌ ERROR connecting to device: $e");
+    }
+
+  }
+  Future<void> writeToOvenProgramCharacteristic(List<int> data) async {
+    if (_ovenProgramCharacteristic == null) {
+      print("Oven program characteristic not found");
+      return;
+    }
+
+    try {
+      await _ovenProgramCharacteristic!.write(data, withoutResponse: false);
+      print("Data written to oven program characteristic: $data");
+    } catch (e) {
+      print("ERROR writing to oven program characteristic: $e");
     }
   }
+
 }
