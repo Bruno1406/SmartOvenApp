@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert'; // Import for utf8 encoding
 
 // Make sure this import path is correct for your project structure
 import 'package:smart_oven_app/service/bluetooth.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class SmartOvenHome extends StatefulWidget {
   const SmartOvenHome({super.key});
@@ -56,7 +60,39 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
               child: const Text("Selecionar Curva de Temperatura"),
             ),
             const SizedBox(height: 20),
-            const Text("Chart Placeholder"),
+             _isRunning
+              ? SizedBox(
+                  height: 300,
+                  child: LineChart(
+                    LineChartData(
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: _graphPoints,
+                          isCurved: true,
+                          color: Colors.orange,
+                          dotData: FlDotData(show: false),
+                          belowBarData: BarAreaData(show: false),
+                        ),
+                      ],
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: true),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: true),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : !_isConnected
+              ? const Text("Sem conexão Bluetooth.")
+              : const Text("Pressione Start para iniciar o gráfico."),
+        ],
+      ),
+    );
+  }
+}
           ],
         ),
       ),

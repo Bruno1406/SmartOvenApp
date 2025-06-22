@@ -13,6 +13,7 @@ void main() {
 class SmartOvenApp extends StatelessWidget {
   const SmartOvenApp({super.key});
 
+  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(

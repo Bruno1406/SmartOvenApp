@@ -1,33 +1,61 @@
 import 'package:flutter/material.dart';
+import '../../model/temperature_curve.dart';
+import '../../service/files.dart';
+import 'curve_detail_page.dart';
 
-class ExistingCurvesPage extends StatelessWidget {
-  final List<String> curves = [
-    "Curva A - Resina epóxi",
-    "Curva B - Resina poliéster",
-    "Curva C - Resina breu",
-  ];
+class ExistingCurvesPage extends StatefulWidget {
+  const ExistingCurvesPage({super.key});
 
-  ExistingCurvesPage({super.key});
+  @override
+  State<ExistingCurvesPage> createState() => _ExistingCurvesPageState();
+}
+
+class _ExistingCurvesPageState extends State<ExistingCurvesPage> {
+  List<TemperatureCurve> _curves = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurves();
+  }
+
+  Future<void> _loadCurves() async {
+    final allCurves = await CurveFileService.loadAllCurves();
+    setState(() {
+      _curves = allCurves;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Curvas Existentes')),
-      body: ListView.builder(
-        itemCount: curves.length,
-        itemBuilder: (context, index) {
-          return ListTile(
-            leading: const Icon(Icons.thermostat),
-            title: Text(curves[index]),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Selecionado: ${curves[index]}')),
-              );
-              Navigator.pop(context); // Volta para home com seleção feita
-            },
-          );
-        },
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _curves.isEmpty
+          ? const Center(child: Text('Nenhuma curva encontrada.'))
+          : ListView.builder(
+              itemCount: _curves.length,
+              itemBuilder: (context, index) {
+                final curve = _curves[index];
+                return ListTile(
+                  leading: const Icon(Icons.thermostat),
+                  title: Text(curve.name),
+                  subtitle: Text("Criada em: ${curve.createdAt.toLocal()}"),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CurveDetailPage(curve: curve),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }
