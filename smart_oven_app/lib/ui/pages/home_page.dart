@@ -17,15 +17,45 @@ class SmartOvenHome extends StatefulWidget {
 }
 
 class SmartOvenHomeState extends State<SmartOvenHome> {
-  // Controller to manage the TextField's input
-  final _textController = TextEditingController();
+  bool _isRunning = false;
+  bool _isConnected = false;
+  // double _currentTemperature = 0.0;
+  // double _currentTime = 0.0;
+  // late Timer _timer;
+  final List<FlSpot> _graphPoints = [];
 
   // It's crucial to dispose of the controller when the widget is removed
   @override
   void dispose() {
-    _textController.dispose();
-    super.dispose();
+      super.dispose();
   }
+
+  void _startMonitoring() {
+    if (!_isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Erro: Sem conexão Bluetooth")),
+      );
+      return;
+    }
+
+    setState(() {
+      _isRunning = true;
+      _currentTime = 0;
+      _graphPoints.clear();
+    });
+
+  }
+
+  _timer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      // 🔄 Simulação de leitura Bluetooth (substitua por dados reais!) TODO @BRUNO
+      double simulatedTemp = 100 + 20 * sin(_currentTime / 10);
+
+      setState(() {
+        _currentTemperature = simulatedTemp;
+        _graphPoints.add(FlSpot(_currentTime, _currentTemperature));
+        _currentTime += 3;
+      });
+    });
 
   @override
   Widget build(BuildContext context) {
@@ -85,16 +115,10 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
                     ),
                   ),
                 )
-              : !_isConnected
+              : !bluetoothState.isConnected
               ? const Text("Sem conexão Bluetooth.")
               : const Text("Pressione Start para iniciar o gráfico."),
         ],
-      ),
-    );
-  }
-}
-          ],
-        ),
       ),
     );
   }
