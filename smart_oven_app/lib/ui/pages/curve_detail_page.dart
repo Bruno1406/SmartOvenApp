@@ -57,3 +57,5 @@ class CurveDetailPage extends StatelessWidget {
     );
   }
 }
+
+//todo fazer botão e voltar para a pagina inicial e volta para a select curve

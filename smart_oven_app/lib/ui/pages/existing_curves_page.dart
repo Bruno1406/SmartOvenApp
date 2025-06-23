@@ -49,7 +49,10 @@ class _ExistingCurvesPageState extends State<ExistingCurvesPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => CurveDetailPage(curve: curve),
+                        builder: (_) => CurveDetailPage(
+                          curve:
+                              curve, //todo passar o nome da curva equivale TemperatureCurve
+                        ), //todo passar o nome da curva equivale a
                       ),
                     );
                   },

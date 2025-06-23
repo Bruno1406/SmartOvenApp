@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../model/temperature_curve.dart';
+import '../../service/files.dart';
+import '../../service/program_manager.dart';
+
 class CreateNewCurvePage extends StatefulWidget {
   const CreateNewCurvePage({super.key});
 
@@ -11,6 +15,7 @@ class CreateNewCurvePage extends StatefulWidget {
 class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
   final _formKey = GlobalKey<FormState>();
 
+  final nomeController = TextEditingController();
   final tempFinalController = TextEditingController();
   final tempAlvoController = TextEditingController();
   final tempoSubidaController = TextEditingController();
@@ -18,6 +23,18 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
   final tempoResfriarController = TextEditingController();
 
   bool _showGraph = false;
+  bool _salvarCurva = false;
+
+  @override
+  void dispose() {
+    nomeController.dispose();
+    tempFinalController.dispose();
+    tempAlvoController.dispose();
+    tempoSubidaController.dispose();
+    tempoManterController.dispose();
+    tempoResfriarController.dispose();
+    super.dispose();
+  }
 
   List<FlSpot> _generateCurve() {
     final double t1 = double.parse(tempoSubidaController.text);
@@ -38,14 +55,38 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
     }
   }
 
-  @override
-  void dispose() {
-    tempFinalController.dispose();
-    tempAlvoController.dispose();
-    tempoSubidaController.dispose();
-    tempoManterController.dispose();
-    tempoResfriarController.dispose();
-    super.dispose();
+  Future<void> _onSaveCurve() async {
+    final points = _generateCurve();
+    final times = points.map((e) => e.x).toList();
+    final temps = points.map((e) => e.y).toList();
+
+    final curve = TemperatureCurve(
+      name: nomeController.text,
+      targetTemperature: double.parse(tempAlvoController.text),
+      finalTemperature: double.parse(tempFinalController.text),
+      heatingTime: double.parse(tempoSubidaController.text),
+      holdTime: double.parse(tempoManterController.text),
+      coolingTime: double.parse(tempoResfriarController.text),
+      times: times,
+      temperatures: temps,
+    );
+
+    // Selecionar curva para execução
+    ProgramManager.selectCurve(curve);
+
+    if (_salvarCurva) {
+      await CurveFileService.saveCurve(curve);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _salvarCurva
+              ? 'Curva salva e pronta para execução!'
+              : 'Curva pronta para execução (não salva)',
+        ),
+      ),
+    );
   }
 
   Widget _buildInput(
@@ -116,6 +157,7 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
           key: _formKey,
           child: ListView(
             children: [
+              _buildInput('Nome da Curva', nomeController, ''),
               _buildInput('Temperatura desejada', tempAlvoController, '°C'),
               _buildInput(
                 'Tempo para atingir temperatura',
@@ -133,6 +175,16 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
                 'min',
               ),
               _buildInput('Temperatura final', tempFinalController, '°C'),
+              const SizedBox(height: 10),
+              CheckboxListTile(
+                title: const Text('Salvar esta curva?'),
+                value: _salvarCurva,
+                onChanged: (value) {
+                  setState(() {
+                    _salvarCurva = value ?? false;
+                  });
+                },
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _onSubmit,
@@ -143,14 +195,7 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
                 _buildGraph(),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: () {
-                    // Enviar a curva — neste ponto você pode salvar em arquivo ou enviar para backend
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Curva enviada com sucesso!'),
-                      ),
-                    );
-                  },
+                  onPressed: _onSaveCurve,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 14),
