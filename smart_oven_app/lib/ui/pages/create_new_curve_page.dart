@@ -3,7 +3,6 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../model/temperature_curve.dart';
 import '../../service/files.dart';
-import '../../service/program_manager.dart';
 
 class CreateNewCurvePage extends StatefulWidget {
   const CreateNewCurvePage({super.key});
@@ -72,7 +71,7 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
     );
 
     // Selecionar curva para execução
-    ProgramManager.selectCurve(curve);
+    // ProgramManager.selectCurve(curve);
 
     if (_salvarCurva) {
       await CurveFileService.saveCurve(curve);

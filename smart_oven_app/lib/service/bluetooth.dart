@@ -5,6 +5,7 @@ import 'dart:async';
 const String serviceUuid = "ffe0";
 const String dataCharUuid = "ffe1";
 const String programCharUuid = "ffe2";
+const String statusCharUuid = "ffe3";
 
 // A simple data class to hold only the information the UI needs.
 class DiscoveredDevice {
@@ -20,7 +21,10 @@ class OvenBleService extends ChangeNotifier {
   StreamSubscription<List<ScanResult>>? _scanResultsSubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   StreamSubscription<List<int>>? _ovenDataCharacteristicSubscription;
+  StreamSubscription<List<int>>? _ovenStatusCharacteristicSubscription;
   BluetoothCharacteristic? _ovenProgramCharacteristic;
+  final StreamController<List<int>> _ovenDataController = StreamController<List<int>>.broadcast();
+  final StreamController<List<int>> _ovenStatusController = StreamController<List<int>>.broadcast();
   
 
   final Map<DeviceIdentifier, ScanResult> _scanResults = {};
@@ -28,7 +32,6 @@ class OvenBleService extends ChangeNotifier {
   bool isBluetoothOn = false;
   bool isConnected = false;
   bool isScanning = false;
-  String test = 'A0';
 
   OvenBleService() {
     _initializeBluetooth();
@@ -58,6 +61,17 @@ class OvenBleService extends ChangeNotifier {
         name: displayName,
       );
     }).toList();
+  }
+
+  Stream<List<int>> get ovenDataStream => _ovenDataController.stream;
+
+  Stream<List<int>> get ovenStatusStream => _ovenStatusController.stream;
+
+  BluetoothCharacteristic get ovenProgramCharacteristic {
+    if (_ovenProgramCharacteristic == null) {
+      throw Exception("Oven program characteristic not initialized");
+    }
+    return _ovenProgramCharacteristic!;
   }
 
   Future<void> _initializeBluetooth() async {
@@ -122,7 +136,6 @@ class OvenBleService extends ChangeNotifier {
 
     device.cancelWhenDisconnected(_connectionStateSubscription!, delayed: true, next: true);
 
-
     // Connect to the device
     try {
       print("Connecting to ${device.remoteId}...");
@@ -147,17 +160,22 @@ class OvenBleService extends ChangeNotifier {
               await characteristic.setNotifyValue(true);
               _ovenDataCharacteristicSubscription = characteristic.onValueReceived.listen((data) {
                 print("Data received: $data");
-                test = String.fromCharCodes(data);
-                notifyListeners();
+                _ovenDataController.add(data);
               });
-
               // Auto-cancel subscription when disconnected
               device.cancelWhenDisconnected(_ovenDataCharacteristicSubscription!);
-
-              // Enable notifications or indications
-              await characteristic.setNotifyValue(true);
               print("Notification enabled for data characteristic.");
-            } 
+              
+            } else if (charId == statusCharUuid) {
+              // Assuming this is the status characteristic
+              await characteristic.setNotifyValue(true);
+              _ovenStatusCharacteristicSubscription = characteristic.onValueReceived.listen((data) {
+                print("Status data received: $data");
+                _ovenStatusController.add(data);
+              });
+              device.cancelWhenDisconnected(_ovenStatusCharacteristicSubscription!);
+              print("Notification enabled for status characteristic.");
+            }
             else if (charId == programCharUuid) {
               _ovenProgramCharacteristic = characteristic;
               print("Program characteristic assigned: $charId");

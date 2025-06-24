@@ -1,12 +1,8 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert'; // Import for utf8 encoding
-
-// Make sure this import path is correct for your project structure
 import 'package:smart_oven_app/service/bluetooth.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:smart_oven_app/service/program_manager.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class SmartOvenHome extends StatefulWidget {
@@ -17,51 +13,90 @@ class SmartOvenHome extends StatefulWidget {
 }
 
 class SmartOvenHomeState extends State<SmartOvenHome> {
-  bool _isRunning = false;
-  bool _isConnected = false;
-  // double _currentTemperature = 0.0;
-  // double _currentTime = 0.0;
-  // late Timer _timer;
-  final List<FlSpot> _graphPoints = [];
 
-  // It's crucial to dispose of the controller when the widget is removed
+  final List<FlSpot> _graphPoints = [];
+  bool _isRunning = true;
+  final bool _isCurveSelected = false; 
+
+  double? _lastTemperature;
+  double? _lastTime;
+
   @override
   void dispose() {
-      super.dispose();
+    super.dispose();
   }
+  Widget _buildMonitoringPannel(OvenProgramManager programManager) {
+    return StreamBuilder<List<double>>(
+      stream: programManager.ovenProcessedDataStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final data = snapshot.data!;
+          _lastTemperature = data[0];
+          _lastTime = data[1];
 
-  void _startMonitoring() {
-    if (!_isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Erro: Sem conexão Bluetooth")),
-      );
-      return;
-    }
+          _graphPoints.add(FlSpot(_lastTime!, _lastTemperature!));
+        }
 
-    setState(() {
-      _isRunning = true;
-      _currentTime = 0;
-      _graphPoints.clear();
-    });
-
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Display the last known data, or a waiting message.
+            if (_lastTemperature != null && _lastTime != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text("Temperatura: ${_lastTemperature!.toStringAsFixed(2)}°C"),
+                  Text("Tempo: ${_lastTime!.toStringAsFixed(2)} s"),
+                ],
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text("Aguardando os primeiros dados do forno..."),
+              ),
+            const SizedBox(height: 20),
+        
+            SizedBox(
+              height: 200, // Giving the chart a fixed height is good practice
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(show: true),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: _graphPoints,
+                      isCurved: true,
+                      color: Colors.orange,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(show: false),
+                    ),
+                  ],
+                  titlesData: const FlTitlesData(
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(
+                      axisNameWidget: Text("Temperatura (°C)"),
+                      sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                    ),
+                    bottomTitles: AxisTitles(
+                      axisNameWidget: Text("Tempo (s)"),
+                      sideTitles: SideTitles(showTitles: true, reservedSize: 30),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          ],
+        );
+      },
+    );
   }
-
-  _timer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      // 🔄 Simulação de leitura Bluetooth (substitua por dados reais!) TODO @BRUNO
-      double simulatedTemp = 100 + 20 * sin(_currentTime / 10);
-
-      setState(() {
-        _currentTemperature = simulatedTemp;
-        _graphPoints.add(FlSpot(_currentTime, _currentTemperature));
-        _currentTime += 3;
-      });
-    });
 
   @override
   Widget build(BuildContext context) {
-    // Watch for changes in the OvenBleService. The widget will rebuild
-    // when notifyListeners() is called in the service.
     var bluetoothState = context.watch<OvenBleService>();
+    var programManager = context.watch<OvenProgramManager>();
 
     return Center(
       child: Padding(
@@ -72,14 +107,44 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                const ElevatedButton(
-                  // You can later link this to bluetoothState.startScanning() for example
-                  onPressed: null,
-                  child: Text('Start'),
+                ElevatedButton(
+                  onPressed: () {
+                    if (!bluetoothState.isConnected) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Erro: Sem conexão Bluetooth")),
+                      );
+                      return;
+                    }
+
+                    if (!_isCurveSelected) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Erro: Selecione uma curva de temperatura")),
+                      );
+                      return;
+                    }
+                    
+                    // Reset state for a new run
+                    setState(() {
+                      _isRunning = true;
+                      _graphPoints.clear();
+                      _lastTemperature = null;
+                      _lastTime = null;
+                    });
+                    programManager.startMonitoring();
+                  },
+                  child: const Text('Start'),
                 ),
-                // 1. Temperature text now dynamically shows the 'test' field
-                Text("Temperature: ${bluetoothState.test}°C"),
-                const Text("Time: 0 min"), // This text remains static
+                 ElevatedButton(
+                  onPressed: () {
+                    // Logic to stop monitoring
+                    setState(() {
+                      _isRunning = false;
+                    });
+                    programManager.stopMonitoring(); // Assuming you have a stop method
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Stop'),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -90,35 +155,18 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
               child: const Text("Selecionar Curva de Temperatura"),
             ),
             const SizedBox(height: 20),
-             _isRunning
-              ? SizedBox(
-                  height: 300,
-                  child: LineChart(
-                    LineChartData(
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: _graphPoints,
-                          isCurved: true,
-                          color: Colors.orange,
-                          dotData: FlDotData(show: false),
-                          belowBarData: BarAreaData(show: false),
-                        ),
-                      ],
-                      titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: true),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: true),
-                        ),
-                      ),
+            // The main content area that changes based on the running state.
+            Expanded(
+              child: _isRunning
+                  ? _buildMonitoringPannel(programManager)
+                  : Center(
+                      child: !bluetoothState.isConnected
+                          ? const Text("Sem conexão Bluetooth.")
+                          : const Text("Pressione Start para iniciar o monitoramento."),
                     ),
-                  ),
-                )
-              : !bluetoothState.isConnected
-              ? const Text("Sem conexão Bluetooth.")
-              : const Text("Pressione Start para iniciar o gráfico."),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
