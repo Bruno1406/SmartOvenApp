@@ -211,10 +211,37 @@ class OvenBleService extends ChangeNotifier {
     }
 
     try {
-      await _ovenProgramCharacteristic!.write(data, withoutResponse: false);
-      print("Data written to oven program characteristic: $data");
+      for (int i = 0; i < 10; i++) {
+        await _ovenProgramCharacteristic!.write(data, withoutResponse: false);
+        print("Data written to oven program characteristic: $data");
+
+        // Small delay to allow device to update its characteristic (optional, depends on device)
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        // Read the characteristic value back
+        List<int> readData = await _ovenProgramCharacteristic!.read();
+        print("Data read back from oven program characteristic: $readData");
+
+        // Compare sent and received data
+        if (readData.length == data.length && _listEquals(readData, data)) {
+          print("Message confirmed successfully on attempt ${i + 1}");
+          return;
+        } else {
+          print("Mismatch on attempt ${i + 1}, retrying...");
+        }
+      }
+      throw Exception("Failed to confirm message");
     } catch (e) {
       print("ERROR writing to oven program characteristic: $e");
     }
   }
+
+  bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
 }
