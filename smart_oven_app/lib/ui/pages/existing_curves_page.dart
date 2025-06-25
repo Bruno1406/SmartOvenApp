@@ -34,8 +34,6 @@ class _ExistingCurvesPageState extends State<ExistingCurvesPage> {
     final fileName = '${curve.name}.json';
 
     try {
-      await OvenProgramManager.selectCurve(fileName);
-
       // Agora podemos navegar para a tela de detalhes
       Navigator.push(
         context,

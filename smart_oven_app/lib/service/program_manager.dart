@@ -13,7 +13,7 @@ class OvenProgramManager {
 
   StreamSubscription? _ovenDataSubscription;
   StreamSubscription? _ovenStatusSubscription;
-  static TemperatureCurve? _selectedCurve;
+  TemperatureCurve? _selectedCurve;
 
   OvenProgramManager(this._ovenBleService) {
     _ovenDataSubscription = _ovenBleService.ovenDataStream.listen(
@@ -25,10 +25,11 @@ class OvenProgramManager {
   }
 
   // Selecionar curva por nome do arquivo
-  static Future<void> selectCurve(String curveFileName) async {
+  Future<void> selectCurve(String curveFileName) async {
     try {
       final curve = await CurveFileService.loadCurve(curveFileName);
       _selectedCurve = curve;
+      await _sendCurve();
     } catch (e) {
       print("Erro ao carregar curva: $e");
       _selectedCurve = null;
@@ -36,12 +37,12 @@ class OvenProgramManager {
   }
 
   // Selecionar curva diretamente
-  static void selectCurveFromObject(TemperatureCurve curve) {
+  void selectCurveFromObject(TemperatureCurve curve) {
     _selectedCurve = curve;
   }
 
   // Getter da curva selecionada
-  static TemperatureCurve? get selectedCurve => _selectedCurve;
+  TemperatureCurve? get selectedCurve => _selectedCurve;
 
   // Monitoramento
   void startMonitoring() {
@@ -58,7 +59,7 @@ class OvenProgramManager {
     final temp =
         (data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24)) / 100.0;
     final timeInSeconds =
-        (data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24)) / 100.0;
+        (data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24)) / 1000.0;
     _ovenProcessedDataController.add([temp, timeInSeconds]);
 
     print('Temperature: $temp ºC, Time: $timeInSeconds s');
@@ -67,6 +68,47 @@ class OvenProgramManager {
   void _processOvenStatus(List<int> status) {
     _ovenProcessedStatusController.add(status[0]);
     print('Oven status: ${status[0]}');
+  }
+
+  Future<void> _sendCurve() async{
+    if (_selectedCurve == null) {
+      throw Exception("No curve selected");
+    }
+
+    final serialized = <int>[];
+
+    // Serializa os pontos da curva
+    final targetTemp = (_selectedCurve!.targetTemperature * 100).toInt();
+    final finalTemp = (_selectedCurve!.finalTemperature * 100).toInt();
+    final heatingTime = (_selectedCurve!.heatingTime * 6000).toInt();
+    final holdTime = (_selectedCurve!.holdTime * 60000).toInt();
+    final coolingTime = (_selectedCurve!.coolingTime * 60000).toInt();
+
+    serialized.addAll([
+      targetTemp & 0xFF,
+      (targetTemp >> 8) & 0xFF,
+      (targetTemp >> 16) & 0xFF,
+      (targetTemp >> 24) & 0xFF,
+      finalTemp & 0xFF,
+      (finalTemp >> 8) & 0xFF,
+      (finalTemp >> 16) & 0xFF,
+      (finalTemp >> 24) & 0xFF,
+      heatingTime & 0xFF,
+      (heatingTime >> 8) & 0xFF,
+      (heatingTime >> 16) & 0xFF,
+      (heatingTime >> 24) & 0xFF,
+      holdTime & 0xFF,
+      (holdTime >> 8) & 0xFF,
+      (holdTime >> 16) & 0xFF,
+      (holdTime >> 24) & 0xFF,
+      coolingTime & 0xFF,
+      (coolingTime >> 8) & 0xFF,
+      (coolingTime >> 16) & 0xFF,
+      (coolingTime >> 24) & 0xFF
+    ]);
+
+    await _ovenBleService.writeToOvenProgramCharacteristic(serialized);
+
   }
 
   Stream<List<double>> get ovenProcessedDataStream =>
