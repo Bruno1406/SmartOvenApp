@@ -1,62 +1,33 @@
 import '../model/temperature_curve.dart';
 import 'bluetooth.dart';
-import '../service/files.dart';
+import 'dart:async';
 
-// class ProgramManager {
-//   static TemperatureCurve? _selectedCurve;
-//   static bool _isRunning = false;
 
-//   static TemperatureCurve? get selectedCurve => _selectedCurve;
-//   static bool get isRunning => _isRunning;
+class OvenProgramManager {
 
-//   /// Define a curva atual que será usada no programa
-//   static void selectCurve(TemperatureCurve curve) {
-//     _selectedCurve = curve;
-//     _isRunning = false;
-//   }
+  final OvenBleService _ovenBleService;
+  final StreamController<List<double>> _ovenProcessedDataController = StreamController<List<double>>.broadcast();
+  final StreamController<int> _ovenProcessedStatusController = StreamController<int>.broadcast();
 
-//   /// Inicia o envio da curva para o dispositivo via Bluetooth
-//   static Future<void> startProgram() async {
-//     if (_selectedCurve == null) return;
+  StreamSubscription? _ovenDataSubscription;
+  StreamSubscription? _ovenStatusSubscription;
+  TemperatureCurve? _selectedCurve;
 
-//     _isRunning = true;
+  OvenProgramManager(OvenBleService ovenBleService)
+    : _ovenBleService = ovenBleService {
+      _ovenDataSubscription = _ovenBleService.ovenDataStream.listen(_processOvenData);
+      _ovenStatusSubscription = _ovenBleService.ovenStatusStream.listen(_processOvenStatus);
+    }
 
-//     final steps = generateProgramSteps();
-//     for (var step in steps) {
-//       if (!_isRunning) break;
+  void dispose() {
+    _ovenDataSubscription?.cancel();
+    _ovenStatusSubscription?.cancel();
+    _ovenProcessedDataController.close();
+    _ovenProcessedStatusController.close();
+  }
 
-//       // Envia tempo e temperatura desejada
-//       await BluetoothService.sendStep(step['time']!, step['temperature']!);
-
-//       // Aguarda resposta/atualização do Bluetooth (ex: temperatura real)
-//       final tempAtual = await BluetoothService.receiveTemperature();
-
-//       // Aqui você pode armazenar ou processar a resposta recebida
-//       print('Recebido: $tempAtual °C');
-//     }
-
-//     _isRunning = false;
-//   }
-
-//   /// Interrompe o programa
-//   static void stopProgram() {
-//     _isRunning = false;
-//   }
-
-//   /// Gera os passos a partir da curva
-//   static List<Map<String, double>> generateProgramSteps() {
-//     if (_selectedCurve == null) return [];
-
-//     final curve = _selectedCurve!;
-//     final steps = <Map<String, double>>[];
-
-//     for (int i = 0; i < curve.times.length; i++) {
-//       steps.add({'time': curve.times[i], 'temperature': curve.temperatures[i]});
-//     }
-
-//     return steps;
-//   }
-// }
+  Stream<List<double>> get ovenProcessedDataStream => _ovenProcessedDataController.stream;
+  Stream<int> get ovenProcessedStatusStream => _ovenProcessedStatusController.stream;
 
 class OvenProgramManager {
   static TemperatureCurve? _selectedCurve;
@@ -80,7 +51,30 @@ class OvenProgramManager {
   /// Getter para obter a curva selecionada
   static TemperatureCurve? get selectedCurve => _selectedCurve;
 
-  static sendCurve() {
+  void startMonitoring() {
     //Todo Bruno
   }
+
+  void stopMonitoring() {
+    //Todo Bruno
+  }
+
+  void _processOvenData(List<int> data) {
+      // Example: data = [37562, 120500] (temp, time in ms)
+      final temp = (data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24)) / 100.0; // 37.562 ºC
+      final timeInSeconds = (data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24)) / 100.0; // 120.500 s
+      _ovenProcessedDataController.add([temp, timeInSeconds]);
+
+      // Now use the processed values
+      print('Temperature: $temp ºC, Time: $timeInSeconds s');
+  }
+
+  void _processOvenStatus(List<int> status) {
+    _ovenProcessedStatusController.add(status[0]);
+    print('Oven status: ${status[0]}');
+  }
+
 }
+
+}
+

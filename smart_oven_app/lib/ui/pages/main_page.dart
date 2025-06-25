@@ -51,9 +51,7 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
                     // This is the scan button
                     ElevatedButton(
                       // Disable button while scanning
-                      onPressed: bluetoothService.isScanning
-                          ? null
-                          : () {
+                      onPressed:() {
                               bluetoothService.startScanning();
                             },
                       child: const Text('Scan for Devices'),

@@ -65,7 +65,14 @@ class _ExistingCurvesPageState extends State<ExistingCurvesPage> {
                   title: Text(curve.name),
                   subtitle: Text("Criada em: ${curve.createdAt.toLocal()}"),
                   trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () => _onCurveTap(curve),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CurveDetailPage(curve: curve),
+                      ),
+                    );
+                  },
                 );
               },
             ),

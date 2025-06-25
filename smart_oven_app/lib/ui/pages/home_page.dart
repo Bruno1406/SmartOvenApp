@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_oven_app/service/bluetooth.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:smart_oven_app/service/program_manager.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class SmartOvenHome extends StatefulWidget {
@@ -15,107 +13,180 @@ class SmartOvenHome extends StatefulWidget {
 }
 
 class SmartOvenHomeState extends State<SmartOvenHome> {
-  bool _isRunning = false;
-  double _currentTemperature = 0.0;
-  double _currentTime = 0.0;
-  late Timer _timer;
   final List<FlSpot> _graphPoints = [];
+  bool _isRunning = true;
+  final bool _isCurveSelected = false;
+
+  double? _lastTemperature;
+  double? _lastTime;
 
   @override
   void dispose() {
-    if (_isRunning) _timer.cancel();
     super.dispose();
   }
 
-  void _startMonitoring() {
-    final bluetoothState = context.read<OvenBleService>();
+  Widget _buildMonitoringPannel(OvenProgramManager programManager) {
+    return StreamBuilder<List<double>>(
+      stream: programManager.ovenProcessedDataStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final data = snapshot.data!;
+          _lastTemperature = data[0];
+          _lastTime = data[1];
 
-    if (!bluetoothState.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Erro: Sem conexão Bluetooth")),
-      );
-      return;
-    }
+          _graphPoints.add(FlSpot(_lastTime!, _lastTemperature!));
+        }
 
-    setState(() {
-      _isRunning = true;
-      _currentTime = 0;
-      _graphPoints.clear();
-    });
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Display the last known data, or a waiting message.
+            if (_lastTemperature != null && _lastTime != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text(
+                    "Temperatura: ${_lastTemperature!.toStringAsFixed(2)}°C",
+                  ),
+                  Text("Tempo: ${_lastTime!.toStringAsFixed(2)} s"),
+                ],
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text("Aguardando os primeiros dados do forno..."),
+              ),
+            const SizedBox(height: 20),
 
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      // 🔄 Simulação — substitua por leitura real do Bluetooth
-      double simulatedTemp = 100 + 20 * sin(_currentTime / 10);
-
-      setState(() {
-        _currentTemperature = simulatedTemp;
-        _graphPoints.add(FlSpot(_currentTime, _currentTemperature));
-        _currentTime += 3;
-      });
-    });
+            SizedBox(
+              height: 200, // Giving the chart a fixed height is good practice
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(show: true),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: _graphPoints,
+                      isCurved: true,
+                      color: Colors.orange,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(show: false),
+                    ),
+                  ],
+                  titlesData: const FlTitlesData(
+                    topTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      axisNameWidget: Text("Temperatura (°C)"),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      axisNameWidget: Text("Tempo (s)"),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bluetoothState = context.watch<OvenBleService>();
+    var bluetoothState = context.watch<OvenBleService>();
+    var programManager = context.watch<OvenProgramManager>();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text("Smart Oven")),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  ElevatedButton(
-                    onPressed: _isRunning ? null : _startMonitoring,
-                    child: const Text('Start'),
-                  ),
-                  Text(
-                    "Temperatura: ${_currentTemperature.toStringAsFixed(1)}°C",
-                  ),
-                  Text("Tempo: ${_currentTime.toInt()} s"),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/temperature-curve-options');
-                },
-                child: const Text("Selecionar Curva de Temperatura"),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: _isRunning
-                    ? LineChart(
-                        LineChartData(
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: _graphPoints,
-                              isCurved: true,
-                              color: Colors.orange,
-                              dotData: FlDotData(show: false),
-                              belowBarData: BarAreaData(show: false),
-                            ),
-                          ],
-                          titlesData: FlTitlesData(
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: true),
-                            ),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: true),
-                            ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                ElevatedButton(
+                  onPressed: () {
+                    if (!bluetoothState.isConnected) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Erro: Sem conexão Bluetooth"),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (!_isCurveSelected) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Erro: Selecione uma curva de temperatura",
                           ),
                         ),
-                      )
-                    : bluetoothState.isConnected
-                    ? const Text("Pressione Start para iniciar o gráfico.")
-                    : const Text("Sem conexão Bluetooth."),
-              ),
-            ],
-          ),
+                      );
+                      return;
+                    }
+
+                    // Reset state for a new run
+                    setState(() {
+                      _isRunning = true;
+                      _graphPoints.clear();
+                      _lastTemperature = null;
+                      _lastTime = null;
+                    });
+                    programManager.startMonitoring();
+                  },
+                  child: const Text('Start'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Logic to stop monitoring
+                    setState(() {
+                      _isRunning = false;
+                    });
+                    programManager
+                        .stopMonitoring(); // Assuming you have a stop method
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Stop'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/temperature-curve-options');
+              },
+              child: const Text("Selecionar Curva de Temperatura"),
+            ),
+            const SizedBox(height: 20),
+            // The main content area that changes based on the running state.
+            Expanded(
+              child: _isRunning
+                  ? _buildMonitoringPannel(programManager)
+                  : Center(
+                      child: !bluetoothState.isConnected
+                          ? const Text("Sem conexão Bluetooth.")
+                          : const Text(
+                              "Pressione Start para iniciar o monitoramento.",
+                            ),
+                    ),
+            ),
+          ],
         ),
       ),
     );
