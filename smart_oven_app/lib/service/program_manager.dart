@@ -41,21 +41,33 @@ class OvenProgramManager extends ChangeNotifier {
   }
 
   // Selecionar curva diretamente
-  void selectCurveFromObject(TemperatureCurve curve) {
+  Future<void>  selectCurveFromObject(TemperatureCurve curve) async {
     _selectedCurve = curve;
+     await _sendCurve();
+      isCurveSelected = true;
+      notifyListeners(); // Notifica os ouvintes sobre a mudança
   }
 
   // Getter da curva selecionada
   TemperatureCurve? get selectedCurve => _selectedCurve;
 
   // Monitoramento
-  void startMonitoring() {
+  Future<void> startMonitoring() async{
     print("Monitoramento iniciado.");
-    // Adicione lógica aqui
+    if (_selectedCurve == null) {
+      throw Exception("Nenhuma curva selecionada");
+    }
+    final status = <int>[1];
+    await _ovenBleService.writeToOvenStatusCharacteristic(status);
   }
 
-  void stopMonitoring() {
+  Future<void> stopMonitoring() async{
     print("Monitoramento parado.");
+    if (_selectedCurve == null) {
+      throw Exception("Nenhuma curva selecionada");
+    }
+    final status = <int>[2];
+    _ovenBleService.writeToOvenStatusCharacteristic(status);
     // Adicione lógica aqui
   }
 
@@ -84,7 +96,7 @@ class OvenProgramManager extends ChangeNotifier {
     // Serializa os pontos da curva
     final targetTemp = (_selectedCurve!.targetTemperature * 100).toInt();
     final finalTemp = (_selectedCurve!.finalTemperature * 100).toInt();
-    final heatingTime = (_selectedCurve!.heatingTime * 6000).toInt();
+    final heatingTime = (_selectedCurve!.heatingTime * 60000).toInt();
     final holdTime = (_selectedCurve!.holdTime * 60000).toInt();
     final coolingTime = (_selectedCurve!.coolingTime * 60000).toInt();
 
@@ -121,6 +133,7 @@ class OvenProgramManager extends ChangeNotifier {
   Stream<int> get ovenProcessedStatusStream =>
       _ovenProcessedStatusController.stream;
 
+  @override
   void dispose() {
     _ovenDataSubscription?.cancel();
     _ovenStatusSubscription?.cancel();

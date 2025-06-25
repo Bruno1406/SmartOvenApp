@@ -22,6 +22,7 @@ class OvenBleService extends ChangeNotifier {
   StreamSubscription<List<int>>? _ovenDataCharacteristicSubscription;
   StreamSubscription<List<int>>? _ovenStatusCharacteristicSubscription;
   BluetoothCharacteristic? _ovenProgramCharacteristic;
+  BluetoothCharacteristic? _ovenStatusCharacteristic;
   final StreamController<List<int>> _ovenDataController =
       StreamController<List<int>>.broadcast();
   final StreamController<List<int>> _ovenStatusController =
@@ -182,6 +183,8 @@ class OvenBleService extends ChangeNotifier {
             } else if (charId == statusCharUuid) {
               // Assuming this is the status characteristic
               await characteristic.setNotifyValue(true);
+              _ovenStatusCharacteristic = characteristic;
+              print("Status characteristic assigned: $charId");
               _ovenStatusCharacteristicSubscription = characteristic
                   .onValueReceived
                   .listen((data) {
@@ -244,4 +247,31 @@ class OvenBleService extends ChangeNotifier {
     return true;
   }
 
+  Future<void> writeToOvenStatusCharacteristic(List<int> data) async {
+    if (_ovenStatusCharacteristic == null) {
+      print("Oven status characteristic not found");
+      return;
+    }
+
+    try {
+      await _ovenStatusCharacteristic!.write(data, withoutResponse: false);
+      print("Data written to oven status characteristic: $data");
+
+      // Small delay to allow device to update its characteristic (optional, depends on device)
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Read the characteristic value back
+      List<int> readData = await _ovenStatusCharacteristic!.read();
+      print("Data read back from oven status characteristic: $readData");
+
+      // Compare sent and received data
+      if (_listEquals(readData, data)) {
+        print("Status message confirmed successfully");
+      } else {
+        print("Mismatch in status message confirmation");
+      }
+    } catch (e) {
+      print("ERROR writing to oven status characteristic: $e");
+    }
+  }
 }

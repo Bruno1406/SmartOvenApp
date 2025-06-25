@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../model/temperature_curve.dart';
 import '../../service/files.dart';
-import '../../service/program_manager.dart';
 import 'curve_detail_page.dart';
 
 class ExistingCurvesPage extends StatefulWidget {
