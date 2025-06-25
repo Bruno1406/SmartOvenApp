@@ -38,14 +38,41 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
     }
   }
 
-  @override
-  void dispose() {
-    tempFinalController.dispose();
-    tempAlvoController.dispose();
-    tempoSubidaController.dispose();
-    tempoManterController.dispose();
-    tempoResfriarController.dispose();
-    super.dispose();
+  Future<void> _onSaveCurve() async {
+    final points = _generateCurve();
+    final times = points.map((e) => e.x).toList();
+    final temps = points.map((e) => e.y).toList();
+
+    final curve = TemperatureCurve(
+      name: nomeController.text.trim(),
+      targetTemperature: double.parse(tempAlvoController.text),
+      finalTemperature: double.parse(tempFinalController.text),
+      heatingTime: double.parse(tempoSubidaController.text),
+      holdTime: double.parse(tempoManterController.text),
+      coolingTime: double.parse(tempoResfriarController.text),
+      times: times,
+      temperatures: temps,
+    );
+
+    final fileName = '${curve.name}.json';
+
+    if (_salvarCurva) {
+      await CurveFileService.saveCurve(curve);
+      await OvenProgramManager.selectCurve(fileName);
+    } else {
+      // Só guarda em memória (não salva no disco)
+      OvenProgramManager.selectCurveFromObject(curve);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _salvarCurva
+              ? 'Curva salva e selecionada para execução!'
+              : 'Curva selecionada para execução (não salva)',
+        ),
+      ),
+    );
   }
 
   Widget _buildInput(
