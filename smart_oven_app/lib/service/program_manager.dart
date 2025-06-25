@@ -2,18 +2,20 @@ import '../model/temperature_curve.dart';
 import 'bluetooth.dart';
 import 'dart:async';
 import 'files.dart'; // <-- Certifique-se de importar corretamente
+import 'package:flutter/foundation.dart';
 
-class OvenProgramManager {
+class OvenProgramManager extends ChangeNotifier {
   final OvenBleService _ovenBleService;
 
   final StreamController<List<double>> _ovenProcessedDataController =
       StreamController<List<double>>.broadcast();
   final StreamController<int> _ovenProcessedStatusController =
       StreamController<int>.broadcast();
+  bool isCurveSelected = false;
 
   StreamSubscription? _ovenDataSubscription;
   StreamSubscription? _ovenStatusSubscription;
-  static TemperatureCurve? _selectedCurve;
+  TemperatureCurve? _selectedCurve;
 
   OvenProgramManager(this._ovenBleService) {
     _ovenDataSubscription = _ovenBleService.ovenDataStream.listen(
@@ -25,10 +27,12 @@ class OvenProgramManager {
   }
 
   // Selecionar curva por nome do arquivo
-  static Future<void> selectCurve(String curveFileName) async {
+  Future<void> selectCurve(String curveFileName) async {
     try {
       final curve = await CurveFileService.loadCurve(curveFileName);
       _selectedCurve = curve;
+      isCurveSelected = true;
+      notifyListeners(); // Notifica os ouvintes sobre a mudança
     } catch (e) {
       print("Erro ao carregar curva: $e");
       _selectedCurve = null;
@@ -36,12 +40,12 @@ class OvenProgramManager {
   }
 
   // Selecionar curva diretamente
-  static void selectCurveFromObject(TemperatureCurve curve) {
+  void selectCurveFromObject(TemperatureCurve curve) {
     _selectedCurve = curve;
   }
 
   // Getter da curva selecionada
-  static TemperatureCurve? get selectedCurve => _selectedCurve;
+  TemperatureCurve? get selectedCurve => _selectedCurve;
 
   // Monitoramento
   void startMonitoring() {

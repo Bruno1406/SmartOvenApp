@@ -120,7 +120,7 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
       return;
     }
 
-    if (OvenProgramManager.selectedCurve == null) {
+    if (manager.selectedCurve == null) {
       _showError("Erro: Nenhuma curva de temperatura foi selecionada");
       return;
     }
@@ -192,9 +192,9 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
               child: _isRunning
                   ? _buildMonitoringPannel(programManager)
                   : Center(
-                      child: !context.watch<OvenBleService>().isConnected
+                      child: !bluetooth.isConnected
                           ? const Text("Sem conexão Bluetooth.")
-                          : (OvenProgramManager.selectedCurve == null
+                          : (!programManager.isCurveSelected
                                 ? const Text(
                                     "Selecione uma curva de temperatura.",
                                   )

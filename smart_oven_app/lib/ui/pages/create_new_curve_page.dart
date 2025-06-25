@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../model/temperature_curve.dart';
 import '../../service/files.dart';
 import '../../service/program_manager.dart';
+import 'package:provider/provider.dart';
 
 class CreateNewCurvePage extends StatefulWidget {
   const CreateNewCurvePage({super.key});
@@ -60,7 +61,8 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
     }
   }
 
-  Future<void> _onSaveCurve() async {
+  Future<void> _onSaveCurve(BuildContext context) async {
+    final programManager = context.read<OvenProgramManager>();
     final points = _generateCurve();
     final times = points.map((e) => e.x).toList();
     final temps = points.map((e) => e.y).toList();
@@ -76,7 +78,7 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
       temperatures: temps,
     );
 
-    OvenProgramManager.selectCurveFromObject(curve);
+    programManager.selectCurveFromObject(curve);
 
     if (_salvarCurva) {
       await CurveFileService.saveCurve(curve);
@@ -275,7 +277,9 @@ class _CreateNewCurvePageState extends State<CreateNewCurvePage> {
                 _buildGraph(),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _onSaveCurve,
+                  onPressed: () {
+                    _onSaveCurve(context);
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 14),
