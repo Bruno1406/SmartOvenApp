@@ -14,8 +14,7 @@ class SmartOvenHome extends StatefulWidget {
 
 class SmartOvenHomeState extends State<SmartOvenHome> {
   final List<FlSpot> _graphPoints = [];
-  bool _isRunning = true;
-  final bool _isCurveSelected = false;
+  bool _isRunning = false;
 
   double? _lastTemperature;
   double? _lastTime;
@@ -38,9 +37,7 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
         }
 
         return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Display the last known data, or a waiting message.
             if (_lastTemperature != null && _lastTime != null)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -57,9 +54,8 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
                 child: Text("Aguardando os primeiros dados do forno..."),
               ),
             const SizedBox(height: 20),
-
             SizedBox(
-              height: 200, // Giving the chart a fixed height is good practice
+              height: 200,
               child: LineChart(
                 LineChartData(
                   gridData: const FlGridData(show: true),
@@ -71,7 +67,6 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
                       color: Colors.orange,
                       barWidth: 3,
                       dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(show: false),
                     ),
                   ],
                   titlesData: const FlTitlesData(
@@ -105,62 +100,76 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
     );
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _startMonitoring(
+    OvenProgramManager manager,
+    OvenBleService bluetoothService,
+  ) {
+    if (!bluetoothService.isBluetoothOn) {
+      _showError("Erro: Bluetooth está desligado");
+      return;
+    }
+
+    if (!bluetoothService.isConnected) {
+      _showError("Erro: Dispositivo não conectado via Bluetooth");
+      return;
+    }
+
+    if (OvenProgramManager.selectedCurve == null) {
+      _showError("Erro: Nenhuma curva de temperatura foi selecionada");
+      return;
+    }
+
+    setState(() {
+      _isRunning = true;
+      _graphPoints.clear();
+      _lastTemperature = null;
+      _lastTime = null;
+    });
+
+    manager.startMonitoring();
+  }
+
+  void _stopMonitoring(
+    OvenProgramManager manager,
+    OvenBleService bluetoothService,
+  ) {
+    if (!bluetoothService.isBluetoothOn || !bluetoothService.isConnected) {
+      _showError("Erro: Bluetooth não está conectado");
+      return;
+    }
+
+    setState(() {
+      _isRunning = false;
+    });
+
+    manager.stopMonitoring();
+  }
+
   @override
   Widget build(BuildContext context) {
-    var bluetoothState = context.watch<OvenBleService>();
+    var bluetooth = context.watch<OvenBleService>();
     var programManager = context.watch<OvenProgramManager>();
 
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 ElevatedButton(
-                  onPressed: () {
-                    if (!bluetoothState.isConnected) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Erro: Sem conexão Bluetooth"),
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (!_isCurveSelected) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Erro: Selecione uma curva de temperatura",
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    // Reset state for a new run
-                    setState(() {
-                      _isRunning = true;
-                      _graphPoints.clear();
-                      _lastTemperature = null;
-                      _lastTime = null;
-                    });
-                    programManager.startMonitoring();
-                  },
+                  onPressed: () => _startMonitoring(programManager, bluetooth),
                   child: const Text('Start'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    // Logic to stop monitoring
-                    setState(() {
-                      _isRunning = false;
-                    });
-                    programManager
-                        .stopMonitoring(); // Assuming you have a stop method
-                  },
+                  onPressed: () => _stopMonitoring(programManager, bluetooth),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   child: const Text('Stop'),
                 ),
@@ -168,22 +177,30 @@ class SmartOvenHomeState extends State<SmartOvenHome> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/temperature-curve-options');
-              },
+              onPressed: bluetooth.isConnected
+                  ? () => Navigator.pushNamed(
+                      context,
+                      '/temperature-curve-options',
+                    )
+                  : () => _showError(
+                      "Erro: Conecte-se ao forno via Bluetooth primeiro",
+                    ),
               child: const Text("Selecionar Curva de Temperatura"),
             ),
             const SizedBox(height: 20),
-            // The main content area that changes based on the running state.
             Expanded(
               child: _isRunning
                   ? _buildMonitoringPannel(programManager)
                   : Center(
-                      child: !bluetoothState.isConnected
+                      child: !context.watch<OvenBleService>().isConnected
                           ? const Text("Sem conexão Bluetooth.")
-                          : const Text(
-                              "Pressione Start para iniciar o monitoramento.",
-                            ),
+                          : (OvenProgramManager.selectedCurve == null
+                                ? const Text(
+                                    "Selecione uma curva de temperatura.",
+                                  )
+                                : const Text(
+                                    "Pressione Start para iniciar o monitoramento.",
+                                  )),
                     ),
             ),
           ],

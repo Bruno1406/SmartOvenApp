@@ -16,19 +16,19 @@ class DiscoveredDevice {
 }
 
 class OvenBleService extends ChangeNotifier {
-
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<List<ScanResult>>? _scanResultsSubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   StreamSubscription<List<int>>? _ovenDataCharacteristicSubscription;
   StreamSubscription<List<int>>? _ovenStatusCharacteristicSubscription;
   BluetoothCharacteristic? _ovenProgramCharacteristic;
-  final StreamController<List<int>> _ovenDataController = StreamController<List<int>>.broadcast();
-  final StreamController<List<int>> _ovenStatusController = StreamController<List<int>>.broadcast();
-  
+  final StreamController<List<int>> _ovenDataController =
+      StreamController<List<int>>.broadcast();
+  final StreamController<List<int>> _ovenStatusController =
+      StreamController<List<int>>.broadcast();
 
   final Map<DeviceIdentifier, ScanResult> _scanResults = {};
-  
+
   bool isBluetoothOn = false;
   bool isConnected = false;
   bool isScanning = false;
@@ -82,7 +82,9 @@ class OvenBleService extends ChangeNotifier {
       return;
     }
 
-    _adapterStateSubscription = FlutterBluePlus.adapterState.listen((BluetoothAdapterState state) {
+    _adapterStateSubscription = FlutterBluePlus.adapterState.listen((
+      BluetoothAdapterState state,
+    ) {
       isBluetoothOn = (state == BluetoothAdapterState.on);
       notifyListeners(); // Notify listeners about the state change
     });
@@ -97,7 +99,7 @@ class OvenBleService extends ChangeNotifier {
     _scanResults.clear(); // Clear previous results before a new scan.
 
     // Cancel any previous subscription before creating a new one.
-    await _scanResultsSubscription?.cancel(); 
+    await _scanResultsSubscription?.cancel();
     _scanResultsSubscription = FlutterBluePlus.scanResults.listen((results) {
       // Update the map with the latest results.
       for (ScanResult r in results) {
@@ -107,8 +109,8 @@ class OvenBleService extends ChangeNotifier {
     }, onError: (e) => print(e));
 
     // Start scanning
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
-    
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+
     // Wait for scanning to stop and update the state.
     await FlutterBluePlus.isScanning.where((val) => val == false).first;
     isScanning = false;
@@ -121,20 +123,27 @@ class OvenBleService extends ChangeNotifier {
       print("Device not found in scan results");
       return;
     }
-    
+
     final device = result.device;
 
-
     await _connectionStateSubscription?.cancel();
-    _connectionStateSubscription = device.connectionState.listen((BluetoothConnectionState state) {
+    _connectionStateSubscription = device.connectionState.listen((
+      BluetoothConnectionState state,
+    ) {
       isConnected = (state == BluetoothConnectionState.connected);
       if (state == BluetoothConnectionState.disconnected) {
-        print("Disconnected: ${device.disconnectReason?.code} ${device.disconnectReason?.description}");
+        print(
+          "Disconnected: ${device.disconnectReason?.code} ${device.disconnectReason?.description}",
+        );
       }
       notifyListeners();
     });
 
-    device.cancelWhenDisconnected(_connectionStateSubscription!, delayed: true, next: true);
+    device.cancelWhenDisconnected(
+      _connectionStateSubscription!,
+      delayed: true,
+      next: true,
+    );
 
     // Connect to the device
     try {
@@ -148,7 +157,8 @@ class OvenBleService extends ChangeNotifier {
         print("Service found: $serviceId");
 
         if (serviceId == serviceUuid) {
-          for (BluetoothCharacteristic characteristic in service.characteristics) {
+          for (BluetoothCharacteristic characteristic
+              in service.characteristics) {
             final charId = characteristic.uuid.toString().toLowerCase();
             print("Characteristic found: $charId");
 
@@ -158,25 +168,31 @@ class OvenBleService extends ChangeNotifier {
 
               // Listen to incoming data
               await characteristic.setNotifyValue(true);
-              _ovenDataCharacteristicSubscription = characteristic.onValueReceived.listen((data) {
-                print("Data received: $data");
-                _ovenDataController.add(data);
-              });
+              _ovenDataCharacteristicSubscription = characteristic
+                  .onValueReceived
+                  .listen((data) {
+                    print("Data received: $data");
+                    _ovenDataController.add(data);
+                  });
               // Auto-cancel subscription when disconnected
-              device.cancelWhenDisconnected(_ovenDataCharacteristicSubscription!);
+              device.cancelWhenDisconnected(
+                _ovenDataCharacteristicSubscription!,
+              );
               print("Notification enabled for data characteristic.");
-              
             } else if (charId == statusCharUuid) {
               // Assuming this is the status characteristic
               await characteristic.setNotifyValue(true);
-              _ovenStatusCharacteristicSubscription = characteristic.onValueReceived.listen((data) {
-                print("Status data received: $data");
-                _ovenStatusController.add(data);
-              });
-              device.cancelWhenDisconnected(_ovenStatusCharacteristicSubscription!);
+              _ovenStatusCharacteristicSubscription = characteristic
+                  .onValueReceived
+                  .listen((data) {
+                    print("Status data received: $data");
+                    _ovenStatusController.add(data);
+                  });
+              device.cancelWhenDisconnected(
+                _ovenStatusCharacteristicSubscription!,
+              );
               print("Notification enabled for status characteristic.");
-            }
-            else if (charId == programCharUuid) {
+            } else if (charId == programCharUuid) {
               _ovenProgramCharacteristic = characteristic;
               print("Program characteristic assigned: $charId");
             }
@@ -186,8 +202,8 @@ class OvenBleService extends ChangeNotifier {
     } catch (e) {
       print("❌ ERROR connecting to device: $e");
     }
-
   }
+
   Future<void> writeToOvenProgramCharacteristic(List<int> data) async {
     if (_ovenProgramCharacteristic == null) {
       print("Oven program characteristic not found");
@@ -201,5 +217,4 @@ class OvenBleService extends ChangeNotifier {
       print("ERROR writing to oven program characteristic: $e");
     }
   }
-
 }

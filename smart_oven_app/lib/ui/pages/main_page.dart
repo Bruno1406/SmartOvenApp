@@ -36,29 +36,37 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
         return Consumer<OvenBleService>(
           builder: (context, bluetoothService, child) {
             return AlertDialog(
-              title: const Text('Bluetooth Devices'),
+              title: const Text('Dispositivos Bluetooth'),
               content: SizedBox(
                 width: double.maxFinite,
-                // Column to hold the list and the button
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    // This is the container for the list of devices
-                    Expanded(
-                      child: _buildDeviceList(bluetoothService),
-                    ),
+                    // AVISO de Bluetooth desligado
+                    if (!bluetoothService.isBluetoothOn)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          "Bluetooth está desligado. Ative para continuar.",
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                    Expanded(child: _buildDeviceList(bluetoothService)),
                     const SizedBox(height: 20),
-                    // This is the scan button
                     ElevatedButton(
-                      // Disable button while scanning
-                      onPressed:() {
-                              bluetoothService.startScanning();
-                            },
-                      child: const Text('Scan for Devices'),
+                      onPressed: bluetoothService.isBluetoothOn
+                          ? () => bluetoothService.startScanning()
+                          : null, // Desativa botão se Bluetooth desligado
+                      child: const Text('Scanear Dispositivos'),
                     ),
                   ],
                 ),
               ),
+
               actions: <Widget>[
                 TextButton(
                   child: const Text('Close'),
@@ -73,7 +81,7 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
       },
     );
   }
-  
+
   // Helper widget to build the content of the device list area
   Widget _buildDeviceList(OvenBleService bluetoothService) {
     if (bluetoothService.isScanning) {
@@ -108,14 +116,13 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
               // When a device is tapped, connect to it
               bluetoothService.connectToDevice(device.id);
               // Close the dialog after attempting to connect
-              Navigator.of(context).pop(); 
+              Navigator.of(context).pop();
             },
           );
         },
       );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +134,8 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
           IconButton(
             icon: const Icon(Icons.bluetooth),
             tooltip: 'Open Bluetooth Devices',
-            onPressed: _showBluetoothDialog, // Call the method to show the dialog
+            onPressed:
+                _showBluetoothDialog, // Call the method to show the dialog
           ),
         ],
       ),
@@ -152,16 +160,16 @@ class SmartOvenMainPageState extends State<SmartOvenMainPage> {
               leading: const Icon(Icons.report),
               title: const Text('Reports'),
               onTap: () {
-                 _onItemTapped(1);
-                 Navigator.pop(context); // Close the drawer
+                _onItemTapped(1);
+                Navigator.pop(context); // Close the drawer
               },
             ),
             ListTile(
               leading: const Icon(Icons.info),
               title: const Text('About'),
               onTap: () {
-                 _onItemTapped(2);
-                 Navigator.pop(context); // Close the drawer
+                _onItemTapped(2);
+                Navigator.pop(context); // Close the drawer
               },
             ),
           ],
